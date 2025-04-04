@@ -1,0 +1,128 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Now Calling</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Lucide icons -->
+    <style>
+      body {
+        text-align: center;
+        font-family: "Arial", sans-serif;
+        padding-top: 50px;
+      }
+
+      .now-calling {
+        font-size: 100px;
+        font-weight: bold;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .speaker-icon {
+        cursor: pointer;
+        font-size: 40px;
+        color: #ff3860;
+        transition: transform 0.3s ease;
+      }
+
+      .queue-number {
+        font-size: 320px;
+        font-weight: bold;
+        color: #ff3860;
+        transition: opacity 0.5s ease-in-out;
+      }
+
+      .speaker-icon:hover {
+        transform: scale(1.1);
+      }
+    </style>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const eventSource = new EventSource("/sse/last-called/");
+        let lastNumber = null;
+        let userInteracted = false;
+        let soundEnabled = false; // Track mute/unmute state
+
+        const speakerIcon = document.getElementById("speakerIcon");
+
+        // Toggle sound
+        speakerIcon.addEventListener("click", () => {
+          userInteracted = true; // Register user interaction
+          soundEnabled = !soundEnabled; // Toggle sound
+
+          if (soundEnabled) {
+            speakerIcon.innerHTML = '<i data-lucide="volume-2"></i>'; // 🔊 Unmute
+          } else {
+            speakerIcon.innerHTML = '<i data-lucide="volume-off"></i>'; // 🔇 Mute
+          }
+          lucide.createIcons();
+        });
+
+        eventSource.onmessage = function (event) {
+          let numberDisplay = document.getElementById("calledNumber");
+
+          try {
+            let data = JSON.parse(event.data);
+            let newNumber = data.number.toString(); // Convert to string
+
+            if (newNumber !== lastNumber) {
+              lastNumber = newNumber;
+
+              if (userInteracted && soundEnabled) {
+                playQueueNumber(newNumber);
+              }
+            }
+
+            numberDisplay.style.opacity = 0;
+
+            setTimeout(() => {
+              numberDisplay.innerText = newNumber;
+              numberDisplay.style.opacity = 1;
+            }, 500);
+          } catch (error) {
+            console.error("Error parsing SSE data:", error);
+          }
+        };
+      });
+
+      function playQueueNumber(number) {
+        let beepAudio = new Audio("{% static 'sounds/queue_beep.mp3' %}");
+        let digitAudios = number.split("").map((digit) => new Audio("{% static 'sounds/' %}" + digit + ".mp3"));
+
+        beepAudio.play();
+        beepAudio.onended = function () {
+          playSequentially(digitAudios, 0);
+        };
+      }
+
+      function playSequentially(audioList, index) {
+        if (index < audioList.length) {
+          audioList[index].play();
+          audioList[index].onended = function () {
+            playSequentially(audioList, index + 1);
+          };
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <h1 class="title is-2 now-calling has-text-centered">
+      Now Calling:
+      <span id="speakerIcon" class="speaker-icon">
+        <i data-lucide="volume-off"></i>
+        <!-- Default: Muted -->
+      </span>
+    </h1>
+    <h2 id="calledNumber" class="queue-number">Waiting...</h2>
+
+    <script>
+      lucide.createIcons(); // Render icons
+    </script>
+  </body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css" />
+    <title>Staff Queue Management</title>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const eventSource = new EventSource("/sse/queue-updates/");
+
+        eventSource.onmessage = function (event) {
+          const queueData = JSON.parse(event.data);
+
+          // Get last called number
+          const lastCalled = [...queueData].reverse().find((q) => q.is_called);
+          document.getElementById("calledNumber").innerText = "Now Calling: " + (lastCalled ? lastCalled.number : "Waiting...");
+
+          // Separate called and waiting queues
+          const calledTable = document.getElementById("called-list");
+          const waitingTable = document.getElementById("waiting-list");
+          calledTable.innerHTML = ""; // Clear called table
+          waitingTable.innerHTML = ""; // Clear waiting table
+
+          queueData.forEach((q) => {
+            const row = `<tr>
+                          <td>${q.number}</td>
+                          <td>${q.is_called ? "✅ Called" : "⏳ Waiting"}</td>
+                          <td>
+                              ${!q.is_called ? `<button class="button is-primary" onclick="callQueue(${q.id})">Call</button>` : ""}
+                              ${q.is_called ? `<button class="button is-warning" onclick="recallQueue(${q.id})">Recall</button>` : ""}
+                              <button class="button is-danger" onclick="cancelQueue(${q.id})">Cancel</button>
+                          </td>
+                        </tr>`;
+
+            if (q.is_called) {
+              calledTable.innerHTML += row;
+            } else {
+              waitingTable.innerHTML += row;
+            }
+          });
+        };
+      });
+
+      function getCSRFToken() {
+        return document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("csrftoken="))
+          ?.split("=")[1];
+      }
+
+      async function callQueue(queueId) {
+        await fetch(`/queue/call-queue/${queueId}/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+          },
+        });
+      }
+
+      async function recallQueue(queueId) {
+        await fetch(`/queue/recall-queue/${queueId}/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+          },
+        });
+      }
+
+      async function cancelQueue(queueId) {
+        await fetch(`/queue/cancel-queue/${queueId}/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+          },
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <section class="section">
+      <div class="container">
+        <h1 class="title has-text-centered has-text-primary">Queue Management</h1>
+
+        <!-- Now Calling Display -->
+        <div class="notification is-info has-text-centered">
+          <h2 class="subtitle" id="calledNumber">Now Calling: Waiting...</h2>
+        </div>
+
+        <!-- Waiting Queue Table (Now on Top) -->
+        <h2 class="title is-4">Waiting Queue</h2>
+        <div class="table-container">
+          <table class="table is-fullwidth is-striped is-hoverable">
+            <thead>
+              <tr>
+                <th>Queue Number</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="waiting-list">
+              {% for queue in queues %} {% if not queue.is_called %}
+              <tr>
+                <td>{{ queue.number }}</td>
+                <td>⏳ Waiting</td>
+                <td>
+                  <button class="button is-primary" onclick="callQueue({{ queue.id }})">Call</button>
+                  <button class="button is-danger" onclick="cancelQueue({{ queue.id }})">Cancel</button>
+                </td>
+              </tr>
+              {% endif %} {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Called Queue Table (Now Below) -->
+        <h2 class="title is-4 mt-5">Called Numbers</h2>
+        <div class="table-container">
+          <table class="table is-fullwidth is-striped is-hoverable">
+            <thead>
+              <tr>
+                <th>Queue Number</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="called-list">
+              {% for queue in queues %} {% if queue.is_called %}
+              <tr>
+                <td>{{ queue.number }}</td>
+                <td>✅ Called</td>
+                <td>
+                  <button class="button is-warning" onclick="recallQueue({{ queue.id }})">Recall</button>
+                  <button class="button is-danger" onclick="cancelQueue({{ queue.id }})">Cancel</button>
+                </td>
+              </tr>
+              {% endif %} {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>

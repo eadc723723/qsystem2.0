@@ -1,0 +1,26 @@
+<form id="queueForm" action="{% url 'generate_queue_number' %}" method="post" onsubmit="return confirmQueueNumber();">
+  {% csrf_token %}
+  <button type="submit" class="button is-primary is-large">Get New Number</button>
+</form>
+
+<script>
+  document.getElementById("queueForm").addEventListener("submit", async function (event) {
+    event.preventDefault(); // Prevent default form submission
+
+    const hasQueue = await hasExistingQueueNumber();
+    if (!hasQueue || confirm("Are you sure you want to take a new queue number?")) {
+      this.submit(); // Only submit if no queue number or user confirms
+    }
+  });
+
+  async function hasExistingQueueNumber() {
+    try {
+      const response = await fetch("{% url 'check_queue_status' %}");
+      const data = await response.json();
+      return data.has_queue; // True if the customer already has a queue number
+    } catch (error) {
+      console.error("Error checking queue status:", error);
+      return false; // Assume no queue number if an error occurs
+    }
+  }
+</script>

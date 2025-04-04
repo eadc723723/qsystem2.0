@@ -1,0 +1,72 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css" />
+    <title>Your Queue Number</title>
+    <style>
+      .queue-number {
+        font-size: 100px; /* Adjust as needed */
+        font-weight: bold;
+      }
+    </style>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const eventSource = new EventSource("/sse/last-called/");
+
+        eventSource.onmessage = function (event) {
+          let calledDisplay = document.getElementById("nowCalling");
+          //let waitTimeDisplay = document.getElementById("waitTime");
+          let customerQueueNumber = parseInt("{{ queue_number|default:0 }}");
+
+          try {
+            let data = JSON.parse(event.data);
+            let nowCalling = data.number;
+            calledDisplay.innerText = nowCalling;
+
+            // Estimate wait time (5 min per customer)
+            if (customerQueueNumber > nowCalling) {
+              let estimatedTime = (customerQueueNumber - nowCalling) * 5;
+              //waitTimeDisplay.innerText = `Estimated Wait Time: ~${estimatedTime} min`;
+            } else {
+              //waitTimeDisplay.innerText = "You're up next!";
+            }
+          } catch (error) {
+            console.error("Error parsing SSE data:", error);
+          }
+        };
+      });
+    </script>
+  </head>
+  <body>
+    <section class="section">
+      <div class="container has-text-centered">
+        <img src="{% static 'images/adc_logo.png' %}" alt="Queue System Logo" class="mb-4" style="max-width: 80px; height: auto" />
+        <h1 class="title has-text-primary">Your Queue Number</h1>
+
+        {% if queue_number %}
+        <div class="notification is-primary is-light is-small">
+          <h1 class="queue-number title is-large has-text-weight-bold">{{ queue_number }}</h1>
+        </div>
+        {% else %}
+        <div class="notification is-warning is-light is-small">
+          <p>You have not taken a queue number yet.</p>
+        </div>
+        {% endif %}
+
+        <!-- Now Calling Section -->
+        <div class="notification is-info is-light is-small mt-4">
+          <h3 class="title is-5">Current Number:</h3>
+          <h2 id="nowCalling" class="title is-3 has-text-weight-bold">Waiting...</h2>
+          {% comment %}
+          <p id="waitTime" class="subtitle is-6"></p>
+          {% endcomment %}
+        </div>
+
+        {% include 'queueapp/generate_button.html' %}
+      </div>
+    </section>
+  </body>
+</html>
