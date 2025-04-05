@@ -1,10 +1,10 @@
 from django.shortcuts import render, redirect
-from django.http import StreamingHttpResponse
-from django.http import JsonResponse
+from django.http import StreamingHttpResponse, JsonResponse
 from django.utils.timezone import now
 from django.db.models import Max
 from django.core.cache import cache
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET
 import datetime
 import time
 import json
@@ -117,3 +117,16 @@ def sse_last_called(request):
     response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"
     return response
+
+@require_GET
+def long_poll_queue_updates(request):
+    """Long polling endpoint for queue updates."""
+    queues = QueueNumber.objects.all().order_by("number").values("id", "number", "is_called")
+    return JsonResponse(list(queues), safe=False)
+
+@require_GET
+def long_poll_last_called(request):
+    """Long polling endpoint for the last called or recalled queue number."""
+    last_called = QueueNumber.objects.filter(is_called=True).order_by("-called_at").first()
+    last_number = last_called.number if last_called else "Waiting..."
+    return JsonResponse({"number": last_number})

@@ -8,8 +8,8 @@ from .views import (
     generate_queue_number,
     call_queue_number,
     cancel_queue_number,
-    sse_queue_updates,
-    sse_last_called,
+    long_poll_queue_updates,
+    long_poll_last_called,
     check_queue_status,
     recall_queue
 )
@@ -23,8 +23,8 @@ urlpatterns = [
     path("queue/recall-queue/<int:queue_id>/", recall_queue, name="recall-queue"),
     path("queue/call-queue/<int:queue_id>/", call_queue_number, name="call_queue_number"),
     path("queue/cancel-queue/<int:queue_id>/", cancel_queue_number, name="cancel_queue_number"),
-    path("sse/queue-updates/", sse_queue_updates, name="sse_queue_updates"),  # SSE route
-    path("sse/last-called/", sse_last_called, name="sse_last_called"),
+    path("long-poll/queue-updates/", long_poll_queue_updates, name="long_poll_queue_updates"),
+    path("long-poll/last-called/", long_poll_last_called, name="long_poll_last_called"),
 ]
 
 if settings.DEBUG:

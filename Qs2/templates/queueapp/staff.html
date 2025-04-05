@@ -7,39 +7,44 @@
     <title>Staff Queue Management</title>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        const eventSource = new EventSource("/sse/queue-updates/");
+        async function fetchQueueUpdates() {
+          try {
+            const response = await fetch("/long-poll/queue-updates/");
+            const queueData = await response.json();
 
-        eventSource.onmessage = function (event) {
-          const queueData = JSON.parse(event.data);
+            const lastCalled = [...queueData].reverse().find((q) => q.is_called);
+            document.getElementById("calledNumber").innerText = "Now Calling: " + (lastCalled ? lastCalled.number : "Waiting...");
 
-          // Get last called number
-          const lastCalled = [...queueData].reverse().find((q) => q.is_called);
-          document.getElementById("calledNumber").innerText = "Now Calling: " + (lastCalled ? lastCalled.number : "Waiting...");
+            const calledTable = document.getElementById("called-list");
+            const waitingTable = document.getElementById("waiting-list");
+            calledTable.innerHTML = "";
+            waitingTable.innerHTML = "";
 
-          // Separate called and waiting queues
-          const calledTable = document.getElementById("called-list");
-          const waitingTable = document.getElementById("waiting-list");
-          calledTable.innerHTML = ""; // Clear called table
-          waitingTable.innerHTML = ""; // Clear waiting table
+            queueData.forEach((q) => {
+              const row = `<tr>
+                            <td>${q.number}</td>
+                            <td>${q.is_called ? "✅ Called" : "⏳ Waiting"}</td>
+                            <td>
+                                ${!q.is_called ? `<button class="button is-primary" onclick="callQueue(${q.id})">Call</button>` : ""}
+                                ${q.is_called ? `<button class="button is-warning" onclick="recallQueue(${q.id})">Recall</button>` : ""}
+                                <button class="button is-danger" onclick="cancelQueue(${q.id})">Cancel</button>
+                            </td>
+                          </tr>`;
 
-          queueData.forEach((q) => {
-            const row = `<tr>
-                          <td>${q.number}</td>
-                          <td>${q.is_called ? "✅ Called" : "⏳ Waiting"}</td>
-                          <td>
-                              ${!q.is_called ? `<button class="button is-primary" onclick="callQueue(${q.id})">Call</button>` : ""}
-                              ${q.is_called ? `<button class="button is-warning" onclick="recallQueue(${q.id})">Recall</button>` : ""}
-                              <button class="button is-danger" onclick="cancelQueue(${q.id})">Cancel</button>
-                          </td>
-                        </tr>`;
+              if (q.is_called) {
+                calledTable.innerHTML += row;
+              } else {
+                waitingTable.innerHTML += row;
+              }
+            });
+          } catch (error) {
+            console.error("Error fetching queue updates:", error);
+          } finally {
+            setTimeout(fetchQueueUpdates, 2000); // Poll every 2 seconds
+          }
+        }
 
-            if (q.is_called) {
-              calledTable.innerHTML += row;
-            } else {
-              waitingTable.innerHTML += row;
-            }
-          });
-        };
+        fetchQueueUpdates();
       });
 
       function getCSRFToken() {

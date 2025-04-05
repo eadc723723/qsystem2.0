@@ -14,29 +14,28 @@
     </style>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        const eventSource = new EventSource("/sse/last-called/");
-
-        eventSource.onmessage = function (event) {
-          let calledDisplay = document.getElementById("nowCalling");
-          //let waitTimeDisplay = document.getElementById("waitTime");
-          let customerQueueNumber = parseInt("{{ queue_number|default:0 }}");
-
+        async function fetchLastCalled() {
           try {
-            let data = JSON.parse(event.data);
-            let nowCalling = data.number;
+            const response = await fetch("/long-poll/last-called/");
+            const data = await response.json();
+            const nowCalling = data.number;
+
+            const calledDisplay = document.getElementById("nowCalling");
             calledDisplay.innerText = nowCalling;
 
-            // Estimate wait time (5 min per customer)
+            const customerQueueNumber = parseInt("{{ queue_number|default:0 }}");
             if (customerQueueNumber > nowCalling) {
-              let estimatedTime = (customerQueueNumber - nowCalling) * 5;
-              //waitTimeDisplay.innerText = `Estimated Wait Time: ~${estimatedTime} min`;
-            } else {
-              //waitTimeDisplay.innerText = "You're up next!";
+              const estimatedTime = (customerQueueNumber - nowCalling) * 5;
+              // Update wait time logic if needed
             }
           } catch (error) {
-            console.error("Error parsing SSE data:", error);
+            console.error("Error fetching last called number:", error);
+          } finally {
+            setTimeout(fetchLastCalled, 2000); // Poll every 2 seconds
           }
-        };
+        }
+
+        fetchLastCalled();
       });
     </script>
   </head>

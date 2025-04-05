@@ -44,32 +44,30 @@
     </style>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        const eventSource = new EventSource("/sse/last-called/");
         let lastNumber = null;
         let userInteracted = false;
-        let soundEnabled = false; // Track mute/unmute state
+        let soundEnabled = false;
 
         const speakerIcon = document.getElementById("speakerIcon");
 
         // Toggle sound
         speakerIcon.addEventListener("click", () => {
-          userInteracted = true; // Register user interaction
-          soundEnabled = !soundEnabled; // Toggle sound
+          userInteracted = true;
+          soundEnabled = !soundEnabled;
 
           if (soundEnabled) {
-            speakerIcon.innerHTML = '<i data-lucide="volume-2"></i>'; // 🔊 Unmute
+            speakerIcon.innerHTML = '<i data-lucide="volume-2"></i>';
           } else {
-            speakerIcon.innerHTML = '<i data-lucide="volume-off"></i>'; // 🔇 Mute
+            speakerIcon.innerHTML = '<i data-lucide="volume-off"></i>';
           }
           lucide.createIcons();
         });
 
-        eventSource.onmessage = function (event) {
-          let numberDisplay = document.getElementById("calledNumber");
-
+        async function fetchLastCalled() {
           try {
-            let data = JSON.parse(event.data);
-            let newNumber = data.number.toString(); // Convert to string
+            const response = await fetch("/long-poll/last-called/");
+            const data = await response.json();
+            const newNumber = data.number.toString();
 
             if (newNumber !== lastNumber) {
               lastNumber = newNumber;
@@ -77,18 +75,23 @@
               if (userInteracted && soundEnabled) {
                 playQueueNumber(newNumber);
               }
+
+              const numberDisplay = document.getElementById("calledNumber");
+              numberDisplay.style.opacity = 0;
+
+              setTimeout(() => {
+                numberDisplay.innerText = newNumber;
+                numberDisplay.style.opacity = 1;
+              }, 500);
             }
-
-            numberDisplay.style.opacity = 0;
-
-            setTimeout(() => {
-              numberDisplay.innerText = newNumber;
-              numberDisplay.style.opacity = 1;
-            }, 500);
           } catch (error) {
-            console.error("Error parsing SSE data:", error);
+            console.error("Error fetching last called number:", error);
+          } finally {
+            setTimeout(fetchLastCalled, 2000); // Poll every 2 seconds
           }
-        };
+        }
+
+        fetchLastCalled();
       });
 
       function playQueueNumber(number) {
